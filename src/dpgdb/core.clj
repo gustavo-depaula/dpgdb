@@ -4,7 +4,7 @@
 
 (def MAX-SEGMENT-ENTRIES 25)
 (def segment-counter (atom {0 0}))
-(def value-refs (atom {}))
+(def entries-refs (atom {}))
 
 (defn read-nth-line
   "Read line-number from the given text file. The first line has the number 1."
@@ -15,34 +15,43 @@
 (defn get-segment-filename [index]
   (str "db-files/segment-" index ".log"))
 
-(defn get-value [key]
-  (let [refs (deref value-refs)
-        value-ref (get refs key nil)]
-    (if (nil? value-ref)
+(defn make-entry [key value] (str key " " value "\n"))
+(defn get-entry-key [entry] (get (str/split entry #"\ +") 0))
+(defn get-entry-value [entry] (get (str/split entry #"\ +") 1))
+
+(defn read-entry [key]
+  (let [entry-ref (get @entries-refs key nil)]
+    (if (nil? entry-ref)
       nil
-      (let [line-number (:line value-ref)
-            segment (get-segment-filename (:segment value-ref))
-            line (read-nth-line segment line-number)
-            line-breakdown (str/split line #"\ +")
-            value (get line-breakdown 2)]
+      (let [line-number (:line entry-ref)
+            segment (get-segment-filename (:segment entry-ref))
+            entry (read-nth-line segment line-number)
+            value (get-entry-value entry)]
         value))))
 
-(defn save-kv-pair [key value]
-  (let [segments (keys (deref segment-counter))
-        max-segment (apply max segments)
-        max-segment-entries (get (deref segment-counter) max-segment)
+(defn which-segment-to-write-in []
+  (let [segments-indexes (keys @segment-counter)
+        highest-index (apply max segments-indexes)
+        highest-index-segment-entries (get (deref segment-counter) highest-index)
 
-        segment (if (>= max-segment-entries MAX-SEGMENT-ENTRIES) (inc max-segment) max-segment)
-        segment-entries (get (deref segment-counter) segment 0)
-        appended-line (inc segment-entries)
+        segment-index (if (>= highest-index-segment-entries MAX-SEGMENT-ENTRIES)
+                        (inc highest-index)
+                        highest-index)
+        segment-entries-count (get (deref segment-counter) segment-index -1)]
+        
+    {:segment-index segment-index
+     :entries-count segment-entries-count}))
 
-        segment-filename (get-segment-filename segment)
-        entry (str "set " key " " value "\n")]
+(defn save-entry [entry]
+  (let [{:keys [segment-index entries-count]} (which-segment-to-write-in)
+        appended-line (inc entries-count)
+        segment-filename (get-segment-filename segment-index)
+        key (get-entry-key entry)]
 
     (spit segment-filename entry :append true)
-    (swap! value-refs assoc key {:line appended-line
-                                 :segment segment})
-    (swap! segment-counter assoc segment appended-line)))
+    (swap! entries-refs assoc key {:line appended-line
+                                   :segment segment-index})
+    (swap! segment-counter assoc segment-index appended-line)))
 
 (defn kv-dict-in-logfile [index]
   (let [segment-filename (get-segment-filename index)
@@ -59,7 +68,7 @@
     values-dict))
 
 (defn keys-in-segment [index]
-  (let [refs (deref value-refs)
+  (let [refs (deref entries-refs)
         keys (keys refs)
         keys-in-segment (filter #(= (str index)  (str (:segment (get refs %)))) keys)]
     keys-in-segment))
@@ -71,7 +80,7 @@
         segments (keys (deref segment-counter))
         max-segment (apply max segments)]
     (swap! segment-counter assoc (inc max-segment) 0)
-    (doseq [keyval kv-pairs-in-file] (save-kv-pair (key keyval) (val keyval)))
+    (doseq [keyval kv-pairs-in-file] (save-entry (key keyval) (val keyval)))
     (clojure.java.io/delete-file (get-segment-filename index))
     (println (str "compacted segment file " (get-segment-filename index) " into " (get-segment-filename (inc max-segment))))))
 
@@ -79,11 +88,11 @@
   (when (= command "set")
     (let [key (get args 0)
           value (get args 1)]
-      (save-kv-pair key value)
+      (save-entry (make-entry key value))
       (println "key" key "setted to" value)))
   (when (= command "get")
     (let [key (get args 0)]
-      (println (get-value key))))
+      (println (read-entry key))))
   (when (= command "compact")
     (let [index (get args 0)]
       (compact-file index))))
