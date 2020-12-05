@@ -14,6 +14,15 @@ This is an implementation of a key-value database that uses an append-only log f
 
 ## 🚀 Installation & Usage
 
+If you just want to try it out, you can use the released binary jar file published on the ["Releases"](https://github.com/gustavo-depaula/dpgdb/releases) section of the repository.
+After you downloaded it, you can run:
+
+```bash
+java -jar target/uberjar/dpgdb-0.1.0-standalone.jar
+```
+
+If you want to make changes and mess around, you'll need to clone the repository locally and follow the instructions below.
+
 This project uses [Leiningen](https://leiningen.org/) to manage dependencies and automation.
 You can use [brew](https://formulae.brew.sh/formula/leiningen) or another lesser package manager to install it.
 
