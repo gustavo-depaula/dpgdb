@@ -4,7 +4,7 @@
   <h1><code>dpgdb</code></h1>
 
   <p>
-    <em><b>d</b>e<b>p</b>aula<b>g</b>u's simple <b>d</b>ata<b>b</b> implementation, written, with love, in clojure! ❤️</em>
+    <em><b>d</b>e<b>p</b>aula<b>g</b>u's simple <b>d</b>ata<b>b</b>ase implementation, written, with love, in clojure! ❤️</em>
   </p>
 </div>
 
